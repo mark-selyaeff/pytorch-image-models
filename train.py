@@ -166,6 +166,8 @@ parser.add_argument('--decay-rate', '--dr', type=float, default=0.1, metavar='RA
 # Augmentation & regularization parameters
 parser.add_argument('--no-aug', action='store_true', default=False,
                     help='Disable all training augmentation, override other train aug args')
+parser.add_argument('--invert-images', action='store_true', default=False,
+                    help='invert images (1-x); only with no prefetching')
 parser.add_argument('--scale', type=float, nargs='+', default=[0.08, 1.0], metavar='PCT',
                     help='Random resize scale (default: 0.08 1.0)')
 parser.add_argument('--ratio', type=float, nargs='+', default=[3./4., 4./3.], metavar='RATIO',
@@ -506,6 +508,7 @@ def main():
         is_training=True,
         use_prefetcher=args.prefetcher,
         no_aug=args.no_aug,
+        invert_images=args.invert_images,
         re_prob=args.reprob,
         re_mode=args.remode,
         re_count=args.recount,
@@ -532,6 +535,7 @@ def main():
         input_size=data_config['input_size'],
         batch_size=args.validation_batch_size_multiplier * args.batch_size,
         is_training=False,
+        invert_images=args.invert_images,
         use_prefetcher=args.prefetcher,
         interpolation=data_config['interpolation'],
         mean=data_config['mean'],

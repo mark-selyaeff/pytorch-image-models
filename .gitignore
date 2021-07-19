@@ -6,6 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
+# My addons
+wandb
+slurm-*
+output
+
 # Distribution / packaging
 .Python
 build/

@@ -7,9 +7,10 @@ import math
 
 import torch
 from torchvision import transforms
+from torchvision.transforms.transforms import Lambda
 
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD, DEFAULT_CROP_PCT
-from timm.data.auto_augment import rand_augment_transform, augment_and_mix_transform, auto_augment_transform
+from timm.data.auto_augment import invert, rand_augment_transform, augment_and_mix_transform, auto_augment_transform
 from timm.data.transforms import _pil_interp, RandomResizedCropAndInterpolation, ToNumpy, ToTensor
 from timm.data.random_erasing import RandomErasing
 
@@ -20,7 +21,9 @@ def transforms_noaug_train(
         use_prefetcher=False,
         mean=IMAGENET_DEFAULT_MEAN,
         std=IMAGENET_DEFAULT_STD,
+        invert_images=False
 ):
+    assert not (use_prefetcher and invert_images), "Both prefetching and inverting isn't supported for now"
     if interpolation == 'random':
         # random interpolation not supported with no-aug
         interpolation = 'bilinear'
@@ -32,12 +35,22 @@ def transforms_noaug_train(
         # prefetcher and collate will handle tensor conversion and norm
         tfl += [ToNumpy()]
     else:
-        tfl += [
-            transforms.ToTensor(),
-            transforms.Normalize(
-                mean=torch.tensor(mean),
-                std=torch.tensor(std))
-        ]
+        if invert_images:
+            print("Invertion: noaug, images inverted")
+            tfl += [
+                transforms.ToTensor(),
+                transforms.Lambda(lambda x: 1-x),
+                transforms.Normalize(
+                    mean=1-torch.tensor(mean),
+                    std=torch.tensor(std))
+            ]
+        else:
+            tfl += [
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=torch.tensor(mean),
+                    std=torch.tensor(std))
+            ]
     return transforms.Compose(tfl)
 
 
@@ -58,6 +71,7 @@ def transforms_imagenet_train(
         re_count=1,
         re_num_splits=0,
         separate=False,
+        invert_images=False
 ):
     """
     If separate==True, the transforms are returned as a tuple of 3 separate transforms
@@ -111,12 +125,22 @@ def transforms_imagenet_train(
         # prefetcher and collate will handle tensor conversion and norm
         final_tfl += [ToNumpy()]
     else:
-        final_tfl += [
+        if invert_images:
+            print("Invertion: train with augs, images inverted")
+            final_tfl += [
             transforms.ToTensor(),
+            transforms.Lambda(lambda x: 1-x),
             transforms.Normalize(
-                mean=torch.tensor(mean),
+                mean=1-torch.tensor(mean),
                 std=torch.tensor(std))
-        ]
+            ]
+        else:
+            final_tfl += [
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=torch.tensor(mean),
+                    std=torch.tensor(std))
+            ]
         if re_prob > 0.:
             final_tfl.append(
                 RandomErasing(re_prob, mode=re_mode, max_count=re_count, num_splits=re_num_splits, device='cpu'))
@@ -131,10 +155,13 @@ def transforms_imagenet_eval(
         img_size=224,
         crop_pct=None,
         interpolation='bilinear',
+        invert_images=False,
         use_prefetcher=False,
         mean=IMAGENET_DEFAULT_MEAN,
         std=IMAGENET_DEFAULT_STD):
     crop_pct = crop_pct or DEFAULT_CROP_PCT
+    
+    assert not (use_prefetcher and invert_images), "Both prefetching and inverting isn't supported for now"
 
     if isinstance(img_size, (tuple, list)):
         assert len(img_size) == 2
@@ -154,12 +181,22 @@ def transforms_imagenet_eval(
         # prefetcher and collate will handle tensor conversion and norm
         tfl += [ToNumpy()]
     else:
-        tfl += [
-            transforms.ToTensor(),
-            transforms.Normalize(
-                     mean=torch.tensor(mean),
-                     std=torch.tensor(std))
-        ]
+        if invert_images:
+            print("Invertion: eval dataset, images inverted.")
+            tfl += [
+                transforms.ToTensor(),
+                transforms.Lambda(lambda x: 1-x),
+                transforms.Normalize(
+                         mean=1-torch.tensor(mean),
+                         std=torch.tensor(std))
+            ]
+        else:
+            tfl += [
+                transforms.ToTensor(),
+                transforms.Normalize(
+                         mean=torch.tensor(mean),
+                         std=torch.tensor(std))
+            ]
 
     return transforms.Compose(tfl)
 
@@ -169,6 +206,7 @@ def create_transform(
         is_training=False,
         use_prefetcher=False,
         no_aug=False,
+        invert_images=False,
         scale=None,
         ratio=None,
         hflip=0.5,
@@ -185,7 +223,7 @@ def create_transform(
         crop_pct=None,
         tf_preprocessing=False,
         separate=False):
-
+    assert not (use_prefetcher and invert_images), "Both prefetching and inverting isn't supported for now"
     if isinstance(input_size, (tuple, list)):
         img_size = input_size[-2:]
     else:
@@ -203,6 +241,7 @@ def create_transform(
                 img_size,
                 interpolation=interpolation,
                 use_prefetcher=use_prefetcher,
+                invert_images=invert_images,
                 mean=mean,
                 std=std)
         elif is_training:
@@ -222,13 +261,15 @@ def create_transform(
                 re_mode=re_mode,
                 re_count=re_count,
                 re_num_splits=re_num_splits,
-                separate=separate)
+                separate=separate,
+                invert_images=invert_images)
         else:
             assert not separate, "Separate transforms not supported for validation preprocessing"
             transform = transforms_imagenet_eval(
                 img_size,
                 interpolation=interpolation,
                 use_prefetcher=use_prefetcher,
+                invert_images=invert_images,
                 mean=mean,
                 std=std,
                 crop_pct=crop_pct)
