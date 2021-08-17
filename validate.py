@@ -108,6 +108,8 @@ parser.add_argument('--real-labels', default='', type=str, metavar='FILENAME',
                     help='Real labels JSON file for imagenet evaluation')
 parser.add_argument('--valid-labels', default='', type=str, metavar='FILENAME',
                     help='Valid label indices txt file for validation of partial label space')
+parser.add_argument('--invert-images', action='store_true', default=False,
+                    help='invert images (1-x); only with no prefetching')
 
 
 def validate(args):
@@ -199,6 +201,7 @@ def validate(args):
         mean=data_config['mean'],
         std=data_config['std'],
         num_workers=args.workers,
+        invert_images=args.invert_images,
         crop_pct=crop_pct,
         pin_memory=args.pin_mem,
         tf_preprocessing=args.tf_preprocessing)
